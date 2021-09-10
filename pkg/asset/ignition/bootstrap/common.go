@@ -154,6 +154,7 @@ func (a *Common) Dependencies() []asset.Asset {
 		&releaseimage.Image{},
 		new(rhcos.Image),
 		&bootkube.ARODNSConfig{},
+		&bootkube.AROMTUConfig{},
 	}
 }
 
@@ -162,7 +163,8 @@ func (a *Common) generateConfig(dependencies asset.Parents, templateData *bootst
 	installConfig := &installconfig.InstallConfig{}
 	bootstrapSSHKeyPair := &tls.BootstrapSSHKeyPair{}
 	aroDNSConfig := &bootkube.ARODNSConfig{}
-	dependencies.Get(installConfig, bootstrapSSHKeyPair, aroDNSConfig)
+	aroMTUConfig := &bootkube.AROMTUConfig{}
+	dependencies.Get(installConfig, bootstrapSSHKeyPair, aroDNSConfig, aroMTUConfig)
 
 	a.Config = &igntypes.Config{
 		Ignition: igntypes.Ignition{
@@ -215,6 +217,10 @@ func (a *Common) generateConfig(dependencies asset.Parents, templateData *bootst
 
 	a.Config.Storage.Files = append(a.Config.Storage.Files, dnsmasqIgnConfig.Storage.Files...)
 	a.Config.Systemd.Units = append(a.Config.Systemd.Units, dnsmasqIgnConfig.Systemd.Units...)
+
+	if aroMTUConfig.MTU > 0 {
+		a.Config.Storage.Files = append(a.Config.Storage.Files, aroMTUConfig.IgnitionFile())
+	}
 
 	return nil
 }

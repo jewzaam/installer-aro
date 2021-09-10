@@ -88,15 +88,16 @@ func TestWorkerGenerate(t *testing.T) {
 		name                  string
 		key                   string
 		hyperthreading        types.HyperthreadingMode
+		mtu                   int
 		expectedMachineConfig []string
 	}{
 		{
-			name:                  "no key hyperthreading enabled",
+			name:                  "no key hyperthreading enabled default MTU",
 			hyperthreading:        types.HyperthreadingEnabled,
 			expectedMachineConfig: []string{aroDNSWorkerMachineConfig},
 		},
 		{
-			name:           "key present hyperthreading enabled",
+			name:           "key present hyperthreading enabled default MTU",
 			key:            "ssh-rsa: dummy-key",
 			hyperthreading: types.HyperthreadingEnabled,
 			expectedMachineConfig: []string{`apiVersion: machineconfiguration.openshift.io/v1
@@ -123,7 +124,7 @@ spec:
 `, aroDNSWorkerMachineConfig},
 		},
 		{
-			name:           "no key hyperthreading disabled",
+			name:           "no key hyperthreading disabled default MTU",
 			hyperthreading: types.HyperthreadingDisabled,
 			expectedMachineConfig: []string{`apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
@@ -153,7 +154,7 @@ spec:
 `, aroDNSWorkerMachineConfig},
 		},
 		{
-			name:           "key present hyperthreading disabled",
+			name:           "key present hyperthreading disabled default MTU",
 			key:            "ssh-rsa: dummy-key",
 			hyperthreading: types.HyperthreadingDisabled,
 			expectedMachineConfig: []string{`apiVersion: machineconfiguration.openshift.io/v1
@@ -204,6 +205,39 @@ spec:
   osImageURL: ""
 `, aroDNSWorkerMachineConfig},
 		},
+		{
+			name:           "no key hyperthreading enabled custom MTU",
+			hyperthreading: types.HyperthreadingEnabled,
+			mtu:            1500,
+			expectedMachineConfig: []string{
+				aroDNSWorkerMachineConfig,
+				`apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  creationTimestamp: null
+  labels:
+    machineconfiguration.openshift.io/role: worker
+  name: 99-worker-mtu
+spec:
+  config:
+    ignition:
+      version: 3.2.0
+    storage:
+      files:
+      - contents:
+          source: data:text/plain;charset=utf-8;base64,IyEvYmluL2Jhc2gKaWYgWyAiJDEiID09ICJldGgwIiBdICYmIFsgIiQyIiA9PSAidXAiIF07IHRoZW4KICAgIGlwIGxpbmsgc2V0ICQxIG10dSAxNTAwCmZp
+        mode: 365
+        overwrite: true
+        path: /etc/NetworkManager/dispatcher.d/30-eth0-mtu-3900
+        user:
+          name: root
+  extensions: null
+  fips: false
+  kernelArguments: null
+  kernelType: ""
+  osImageURL: ""
+`},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -247,6 +281,7 @@ spec:
 					},
 				},
 				&bootkube.ARODNSConfig{},
+				&bootkube.AROMTUConfig{MTU: tc.mtu},
 			)
 			worker := &Worker{}
 			if err := worker.Generate(parents); err != nil {
@@ -310,6 +345,7 @@ func TestComputeIsNotModified(t *testing.T) {
 			},
 		},
 		&bootkube.ARODNSConfig{},
+		&bootkube.AROMTUConfig{},
 	)
 	worker := &Worker{}
 	if err := worker.Generate(parents); err != nil {

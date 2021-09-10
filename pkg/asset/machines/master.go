@@ -127,6 +127,7 @@ func (m *Master) Dependencies() []asset.Asset {
 		new(rhcos.Image),
 		&machine.Master{},
 		&bootkube.ARODNSConfig{},
+		&bootkube.AROMTUConfig{},
 	}
 }
 
@@ -147,7 +148,8 @@ func (m *Master) Generate(dependencies asset.Parents) error {
 	rhcosImage := new(rhcos.Image)
 	mign := &machine.Master{}
 	aroDNSConfig := &bootkube.ARODNSConfig{}
-	dependencies.Get(clusterID, installConfig, rhcosImage, mign, aroDNSConfig)
+	aroMTUConfig := &bootkube.AROMTUConfig{}
+	dependencies.Get(clusterID, installConfig, rhcosImage, mign, aroDNSConfig, aroMTUConfig)
 
 	ic := installConfig.Config
 
@@ -411,6 +413,13 @@ func (m *Master) Generate(dependencies asset.Parents) error {
 		return errors.Wrap(err, "failed to create ignition for ARO DNS for master machines")
 	}
 	machineConfigs = append(machineConfigs, ignARODNS)
+	if aroMTUConfig.MTU > 0 {
+		machineConfigMTU, err := aroMTUConfig.MachineConfig("master")
+		if err != nil {
+			return errors.Wrap(err, "failed to create ignition for MTU override for master machines")
+		}
+		machineConfigs = append(machineConfigs, machineConfigMTU)
+	}
 
 	m.MachineConfigFiles, err = machineconfig.Manifests(machineConfigs, "master", directory)
 	if err != nil {

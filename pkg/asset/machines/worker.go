@@ -188,6 +188,7 @@ func (w *Worker) Dependencies() []asset.Asset {
 		new(rhcos.Image),
 		&machine.Worker{},
 		&bootkube.ARODNSConfig{},
+		&bootkube.AROMTUConfig{},
 	}
 }
 
@@ -199,7 +200,8 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 	rhcosImage := new(rhcos.Image)
 	wign := &machine.Worker{}
 	aroDNSConfig := &bootkube.ARODNSConfig{}
-	dependencies.Get(clusterID, installConfig, rhcosImage, wign, aroDNSConfig)
+	aroMTUConfig := &bootkube.AROMTUConfig{}
+	dependencies.Get(clusterID, installConfig, rhcosImage, wign, aroDNSConfig, aroMTUConfig)
 
 	machineConfigs := []*mcfgv1.MachineConfig{}
 	machineSets := []runtime.Object{}
@@ -232,6 +234,13 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 			return errors.Wrap(err, "failed to create ignition for ARO DNS for worker machines")
 		}
 		machineConfigs = append(machineConfigs, ignARODNS)
+		if aroMTUConfig.MTU > 0 {
+			machineConfigMTU, err := aroMTUConfig.MachineConfig("worker")
+			if err != nil {
+				return errors.Wrap(err, "failed to create ignition for MTU override for worker machines")
+			}
+			machineConfigs = append(machineConfigs, machineConfigMTU)
+		}
 		switch ic.Platform.Name() {
 		case awstypes.Name:
 			subnets := map[string]string{}
