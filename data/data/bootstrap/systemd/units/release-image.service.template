@@ -7,3 +7,6 @@ After=network-online.target
 Type=oneshot
 ExecStart=/usr/local/bin/release-image-download.sh
 RemainAfterExit=true
+{{if .IsUnattended -}}
+StandardOutput=journal+console
+{{end -}}
