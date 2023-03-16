@@ -30,6 +30,9 @@ user=dnsmasq
 group=dnsmasq
 no-hosts
 cache-size=0
+{{- if .EnableRetries }}
+fast-dns-retry=1000,40000
+{{- end }}
 {{ end }}
 
 {{ define "dnsmasq.service" }}
@@ -110,7 +113,7 @@ chmod 0744 /etc/resolv.conf.dnsmasq
 {{ end }}
 `))
 
-func config(clusterDomain, apiIntIP, ingressIP string, gatewayDomains []string, gatewayPrivateEndpointIP string) ([]byte, error) {
+func config(clusterDomain, apiIntIP, ingressIP string, gatewayDomains []string, gatewayPrivateEndpointIP string, enableRetries bool) ([]byte, error) {
 	buf := &bytes.Buffer{}
 
 	err := t.ExecuteTemplate(buf, "dnsmasq.conf", &struct {
@@ -119,12 +122,14 @@ func config(clusterDomain, apiIntIP, ingressIP string, gatewayDomains []string, 
 		IngressIP                string
 		GatewayDomains           []string
 		GatewayPrivateEndpointIP string
+		EnableRetries            bool
 	}{
 		ClusterDomain:            clusterDomain,
 		APIIntIP:                 apiIntIP,
 		IngressIP:                ingressIP,
 		GatewayDomains:           gatewayDomains,
 		GatewayPrivateEndpointIP: gatewayPrivateEndpointIP,
+		EnableRetries:            enableRetries,
 	})
 	if err != nil {
 		return nil, err
@@ -155,13 +160,13 @@ func startpre() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func Ignition2Config(clusterDomain, apiIntIP, ingressIP string, gatewayDomains []string, gatewayPrivateEndpointIP string) (*ign2types.Config, error) {
+func Ignition2Config(clusterDomain, apiIntIP, ingressIP string, gatewayDomains []string, gatewayPrivateEndpointIP string, enableRetries bool) (*ign2types.Config, error) {
 	service, err := service()
 	if err != nil {
 		return nil, err
 	}
 
-	config, err := config(clusterDomain, apiIntIP, ingressIP, gatewayDomains, gatewayPrivateEndpointIP)
+	config, err := config(clusterDomain, apiIntIP, ingressIP, gatewayDomains, gatewayPrivateEndpointIP, enableRetries)
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +234,7 @@ func Ignition3Config(clusterDomain, apiIntIP, ingressIP string, gatewayDomains [
 		return nil, err
 	}
 
-	config, err := config(clusterDomain, apiIntIP, ingressIP, gatewayDomains, gatewayPrivateEndpointIP)
+	config, err := config(clusterDomain, apiIntIP, ingressIP, gatewayDomains, gatewayPrivateEndpointIP, false)
 	if err != nil {
 		return nil, err
 	}
@@ -289,8 +294,8 @@ func Ignition3Config(clusterDomain, apiIntIP, ingressIP string, gatewayDomains [
 	}, nil
 }
 
-func MachineConfig(clusterDomain, apiIntIP, ingressIP, role string, gatewayDomains []string, gatewayPrivateEndpointIP string) (*mcfgv1.MachineConfig, error) {
-	ignConfig, err := Ignition2Config(clusterDomain, apiIntIP, ingressIP, gatewayDomains, gatewayPrivateEndpointIP)
+func MachineConfig(clusterDomain, apiIntIP, ingressIP, role string, gatewayDomains []string, gatewayPrivateEndpointIP string, enableRetry bool) (*mcfgv1.MachineConfig, error) {
+	ignConfig, err := Ignition2Config(clusterDomain, apiIntIP, ingressIP, gatewayDomains, gatewayPrivateEndpointIP, enableRetry)
 	if err != nil {
 		return nil, err
 	}
