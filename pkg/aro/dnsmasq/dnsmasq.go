@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"text/template"
 
-	ign2types "github.com/coreos/ignition/config/v2_2/types"
 	ignutil "github.com/coreos/ignition/v2/config/util"
 	ign3types "github.com/coreos/ignition/v2/config/v3_2/types"
 	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
@@ -155,74 +154,6 @@ func startpre() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func Ignition2Config(clusterDomain, apiIntIP, ingressIP string, gatewayDomains []string, gatewayPrivateEndpointIP string) (*ign2types.Config, error) {
-	service, err := service()
-	if err != nil {
-		return nil, err
-	}
-
-	config, err := config(clusterDomain, apiIntIP, ingressIP, gatewayDomains, gatewayPrivateEndpointIP)
-	if err != nil {
-		return nil, err
-	}
-
-	startpre, err := startpre()
-	if err != nil {
-		return nil, err
-	}
-
-	return &ign2types.Config{
-		Ignition: ign2types.Ignition{
-			Version: ign2types.MaxVersion.String(),
-		},
-		Storage: ign2types.Storage{
-			Files: []ign2types.File{
-				{
-					Node: ign2types.Node{
-						Filesystem: "root",
-						Overwrite:  ignutil.BoolToPtr(true),
-						Path:       "/etc/dnsmasq.conf",
-						User: &ign2types.NodeUser{
-							Name: "root",
-						},
-					},
-					FileEmbedded1: ign2types.FileEmbedded1{
-						Contents: ign2types.FileContents{
-							Source: dataurl.EncodeBytes(config),
-						},
-						Mode: ignutil.IntToPtr(0644),
-					},
-				},
-				{
-					Node: ign2types.Node{
-						Filesystem: "root",
-						Overwrite:  ignutil.BoolToPtr(true),
-						Path:       "/usr/local/bin/aro-dnsmasq-pre.sh",
-						User: &ign2types.NodeUser{
-							Name: "root",
-						},
-					},
-					FileEmbedded1: ign2types.FileEmbedded1{
-						Contents: ign2types.FileContents{
-							Source: dataurl.EncodeBytes(startpre),
-						},
-						Mode: ignutil.IntToPtr(0744),
-					},
-				},
-			},
-		},
-		Systemd: ign2types.Systemd{
-			Units: []ign2types.Unit{
-				{
-					Contents: service,
-					Enabled:  ignutil.BoolToPtr(true),
-					Name:     "dnsmasq.service",
-				},
-			},
-		},
-	}, nil
-}
-
 func Ignition3Config(clusterDomain, apiIntIP, ingressIP string, gatewayDomains []string, gatewayPrivateEndpointIP string) (*ign3types.Config, error) {
 	service, err := service()
 	if err != nil {
@@ -290,7 +221,7 @@ func Ignition3Config(clusterDomain, apiIntIP, ingressIP string, gatewayDomains [
 }
 
 func MachineConfig(clusterDomain, apiIntIP, ingressIP, role string, gatewayDomains []string, gatewayPrivateEndpointIP string) (*mcfgv1.MachineConfig, error) {
-	ignConfig, err := Ignition2Config(clusterDomain, apiIntIP, ingressIP, gatewayDomains, gatewayPrivateEndpointIP)
+	ignConfig, err := Ignition3Config(clusterDomain, apiIntIP, ingressIP, gatewayDomains, gatewayPrivateEndpointIP)
 	if err != nil {
 		return nil, err
 	}
