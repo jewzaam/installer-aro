@@ -41,6 +41,7 @@ import (
 	"github.com/openshift/installer/pkg/asset/templates/content/bootkube"
 	"github.com/openshift/installer/pkg/asset/tls"
 	"github.com/openshift/installer/pkg/types"
+	azuretypes "github.com/openshift/installer/pkg/types/azure"
 	baremetaltypes "github.com/openshift/installer/pkg/types/baremetal"
 	vspheretypes "github.com/openshift/installer/pkg/types/vsphere"
 )
@@ -83,6 +84,7 @@ type bootstrapTemplateData struct {
 	BootstrapInPlace      *types.BootstrapInPlace
 	UseIPv6ForNodeIP      bool
 	IsOKD                 bool
+	IsUnattended          bool
 	BootstrapNodeIP       string
 	LoggingConfig         *bootstraplogging.Config
 }
@@ -252,6 +254,7 @@ func (a *Common) getTemplateData(dependencies asset.Parents, bootstrapInPlace bo
 	ironicCreds := &baremetal.IronicCreds{}
 	dependencies.Get(installConfig, proxy, releaseImage, rhcosImage, bootstrapSSHKeyPair, ironicCreds, loggingConfig)
 
+	platform := installConfig.Config.Platform.Name()
 	etcdEndpoints := make([]string, *installConfig.Config.ControlPlane.Replicas)
 
 	for i := range etcdEndpoints {
@@ -275,12 +278,17 @@ func (a *Common) getTemplateData(dependencies asset.Parents, bootstrapInPlace bo
 
 	// Generate platform-specific bootstrap data
 	var platformData platformTemplateData
+	var isUnattended bool
 
-	switch installConfig.Config.Platform.Name() {
+	switch platform {
 	case baremetaltypes.Name:
 		platformData.BareMetal = baremetal.GetTemplateData(installConfig.Config.Platform.BareMetal, installConfig.Config.MachineNetwork, ironicCreds.Username, ironicCreds.Password)
 	case vspheretypes.Name:
 		platformData.VSphere = vsphere.GetTemplateData(installConfig.Config.Platform.VSphere)
+	case azuretypes.Name:
+		if installConfig.Config.Platform.Azure.IsARO() {
+			isUnattended = true
+		}
 	}
 
 	bootstrapNodeIP := os.Getenv("OPENSHIFT_INSTALL_BOOTSTRAP_NODE_IP")
@@ -323,6 +331,7 @@ func (a *Common) getTemplateData(dependencies asset.Parents, bootstrapInPlace bo
 		BootstrapInPlace:      bootstrapInPlaceConfig,
 		UseIPv6ForNodeIP:      APIIntVIPonIPv6,
 		IsOKD:                 installConfig.Config.IsOKD(),
+		IsUnattended:          isUnattended,
 		BootstrapNodeIP:       bootstrapNodeIP,
 	}
 }
