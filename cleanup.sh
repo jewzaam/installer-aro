@@ -9,14 +9,15 @@ rm -rf ./data/data/agent
 rm -rf ./pkg/asset/store/data/agent
 rm -rf ./pkg/types/agent
 
-
 # Remove agent-installer requires
 sed -i "s\^replace github.com/openshift/assisted-service\//replace github.com/openshift/assisted-service\g" go.mod
 sed -i "s\^	github.com/openshift/assisted-service\//    github.com/openshift/assisted-service\g" go.mod
 
-# Remove tfvars
+# Remove tfvars+terraform
 rm -f ./pkg/asset/cluster/tfvars.go
 sed -i "s/&cluster.TerraformVariables{},//" ./pkg/asset/targets/targets.go
+rm -rf ./pkg/tfvars
+rm -rf ./pkg/terraform
 
 # Remove destroy (unused in ARO)
 rm -rf ./pkg/destroy
